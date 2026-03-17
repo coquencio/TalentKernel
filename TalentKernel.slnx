@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TalentKernel/TalentKernel.csproj" />
+  <Project Path="TalentKernelChat/TalentKernelChat.csproj" Id="2670346d-0f91-46cf-8784-67308b6208df" />
+</Solution>
