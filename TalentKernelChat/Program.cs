@@ -83,6 +83,6 @@ while (true)
     var response = await chatService.GetChatMessageContentAsync(chatHistory, executionSettings, kernel);
 
     Console.ForegroundColor = ConsoleColor.Cyan;
-    Console.WriteLine($"\nVisaScout: {response.Content}");
+    Console.WriteLine($"\nTalentKernel: {response.Content}");
     chatHistory.AddAssistantMessage(response.Content!);
 }
