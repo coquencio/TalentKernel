@@ -28,6 +28,9 @@ builder.Services.AddSingleton<ApplicationArchitectPlugin>();
 // Build the Kernel
 var kernelBuilder = builder.Services.AddKeyedSingleton("talentKernel", (sp, key) => {
     var k = Kernel.CreateBuilder()
+        // Use the Azure OpenAI / Azure AI Studio integration with the resource endpoint root,
+        // passing the deployment name and API key. This ensures SK uses the correct API paths
+        // for Azure (avoids 404 Resource not found when constructing incorrect URLs).
         .AddAzureOpenAIChatCompletion(model, modelEndpoint, modelKey)
         .Build();
 
