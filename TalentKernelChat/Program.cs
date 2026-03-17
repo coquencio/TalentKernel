@@ -8,10 +8,11 @@ using TalentKernel.Plugins;
 
 // Setup Services & HttpClientFactory
 var builder = Host.CreateApplicationBuilder();
-var openAiKey = builder.Configuration["OpenAI:ApiKey"] ?? string.Empty;
+var modelKey = builder.Configuration["Model:key"] ?? string.Empty;
 var adzunaId = builder.Configuration["Adzuna:AppId"] ?? string.Empty;
 var adzunaKey = builder.Configuration["Adzuna:ApiKey"] ?? string.Empty;
-var model = builder.Configuration["OpenAI:ModelId"] ?? string.Empty;
+var model = builder.Configuration["Model:deploymentName"] ?? string.Empty;
+var modelEndpoint = builder.Configuration["Model:endpoint"] ?? string.Empty;
 builder.Services.AddHttpClient("AdzunaClient");
 builder.Services.AddHttpClient("JinaReaderClient");
 
@@ -27,7 +28,7 @@ builder.Services.AddSingleton<ApplicationArchitectPlugin>();
 // Build the Kernel
 var kernelBuilder = builder.Services.AddKeyedSingleton("talentKernel", (sp, key) => {
     var k = Kernel.CreateBuilder()
-        .AddOpenAIChatCompletion(model, openAiKey)
+        .AddAzureOpenAIChatCompletion(model, modelEndpoint, modelKey)
         .Build();
 
     // Add all plugins to the Kernel
