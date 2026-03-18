@@ -1,46 +1,50 @@
-# TalentKernel
+# 🤖 TalentKernel
 
-TalentKernel is a **Semantic Kernel** based application designed to automate the search and analysis of job postings. The primary goal of this project is to gain hands-on experience with Artificial Intelligence development, LLM (Large Language Model) orchestration, and the implementation of technical plugins within the .NET ecosystem.
+TalentKernel is a **Semantic Kernel** based application designed to automate the search and analysis of job postings using AI agents. This project demonstrates advanced LLM orchestration, agentic workflows, and custom plugin development within the **.NET 9** ecosystem.
 
-## Project Objectives
+## 🎯 Project Objectives
 
-The core purpose of this project is to leverage the power of Large Language Models to perform **semantic searches**, moving beyond the limitations of traditional keyword-based platforms. 
+The core purpose of this project is to leverage Large Language Models to perform **semantic searches**, moving beyond the limitations of traditional keyword-based platforms. 
 
-Traditional job searches often rely on "exact text matches," which can be frustrating and inefficient. For example:
-* **Nuanced Requirements:** A traditional search might miss a role offering **"Relocation Support"** if the recruiter used terms like "International hiring" or "Assistance with moving costs."
-* **Tech Stack Synonyms:** Searching for ".NET" might exclude roles described with "C# Specialist" or "Core/Web API development" depending on the engine's rigidity.
-* **Contextual Fit:** Traditional engines cannot easily filter for "Remote-first culture" or "Greenfield projects" unless those exact strings are present.
+Instead of rigid text matching, TalentKernel understands the *intent* and *context* of job descriptions:
+* **🔍 Nuanced Requirements:** Identifies "Relocation Support" even if the specific string isn't present.
+* **💻 Tech Stack Synonyms:** Connects ".NET" with "C# Specialist" or "Web API development" naturally.
+* **🌍 Contextual Fit:** Filters for "Remote-first" or "Greenfield projects" by analyzing the job's overall description.
 
-TalentKernel uses AI to understand the *intent* behind the job description, making the process less tedious and uncovering opportunities that a simple text match would otherwise overlook.
+## 🏗️ Project Structure & Interface
 
-## Project Structure
+The application has transitioned from a basic console loop to a **Discord Bot**, providing a modern, persistent, and multi-modal interface for career interaction.
 
-The solution is divided into two main projects:
+* **🧠 Core Logic:** A library containing specialized plugins:
+    * `JobSearchPlugin`: Connects to recruitment APIs (Adzuna).
+    * `JobAnalystPlugin`: Evaluates job requirements against candidate profiles.
+    * `FileExtractorPlugin`: Uses **PdfPig** to parse CVs and job descriptions from PDF attachments.
+    * `MarkdownBatchReaderPlugin`: Scrapes and cleans web-based job postings.
+* **💬 Discord Integration:** A `BackgroundService` that allows the agent to live in a Discord server, supporting file uploads (CVs) and rich text responses.
 
-* **TalentKernel (Class Library):** Contains the core logic and agent capabilities.
-    * **Models:** Data definitions for candidate profiles, job opportunities, and analytical results.
-    * **Plugins:** A set of specialized tools (`JobSearchPlugin`, `JobAnalystPlugin`, `ApplicationArchitectPlugin`, etc.) that allow the agent to interact with external APIs and process technical information in a structured manner.
-* **TalentKernelChat (Console Application):** The entry point of the application. It manages configuration, Kernel construction, and real-time user interaction.
-
-## Prerequisites
+## ⚙️ Prerequisites
 
 To run this project, you will need:
-1. An **Azure AI** subscription with a deployed model (Phi-4 or similar recommended).
-2. An **Adzuna** developer account to access their job search API.
+1. An **Azure AI** subscription with a deployed model (**DeepSeek V3.2** or GPT-4o recommended).
+2. An **Adzuna** developer account for job search data.
+3. A **Discord Bot Token** from the [Discord Developer Portal](https://discord.com/developers/applications).
 
-## Setup
+## 🛠️ Setup
 
-To ensure the application functions correctly, you must manually populate the `appsettings.json` file in the **TalentKernelChat** project. Use the following structure:
+Populate the `appsettings.json` file in the main project. Ensure the **Message Content Intent** is enabled in your Discord Developer Portal settings.
 
 ```json
 {
-  "AzureAi": {
-    "DeploymentName": "YOUR_DEPLOYMENT_NAME",
-    "Endpoint": "YOUR_ENDPOINT_URL",
-    "ApiKey": "YOUR_AZURE_API_KEY"
+  "Model": {
+    "key": "YOUR_AZURE_API_KEY",
+    "deploymentName": "YOUR_DEPLOYMENT_NAME",
+    "endpoint": "YOUR_ENDPOINT_URL"
   },
   "Adzuna": {
     "AppId": "YOUR_ADZUNA_APP_ID",
     "ApiKey": "YOUR_ADZUNA_API_KEY"
+  },
+  "Discord": {
+    "Token": "YOUR_DISCORD_BOT_TOKEN"
   }
 }
