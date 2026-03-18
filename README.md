@@ -1,6 +1,6 @@
 # 🤖 TalentKernel
 
-TalentKernel is a **Semantic Kernel** based application designed to automate the search and analysis of job postings using AI agents. This project demonstrates advanced LLM orchestration, agentic workflows, and custom plugin development within the **.NET 9** ecosystem.
+TalentKernel is a **Semantic Kernel** based application designed to automate the search and analysis of job postings using AI agents. This project demonstrates advanced LLM orchestration, agentic workflows, and custom plugin development within the **.NET 10** ecosystem.
 
 ## 🎯 Project Objectives
 
