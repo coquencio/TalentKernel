@@ -2,18 +2,16 @@
 using System.ComponentModel;
 using System.Net;
 namespace TalentKernel.Plugins;
-public class MarkdownBatchReaderPlugin(IHttpClientFactory httpClientFactory)
+public class MarkdownReaderPlugin(IHttpClientFactory httpClientFactory)
 {
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("JinaReaderClient");
     public record JobContent(string Id, string Markdown);
 
     /// <summary>
-    /// Converts a list of job URLs to Markdown in parallel.
+    /// Converts a list of URLs to Markdown in parallel.
     /// </summary>
-    /// <param name="urls">List of job posting URLs.</param>
-    /// <returns>A list of JobContent objects containing the cleaned text.</returns>
-    [KernelFunction]
-    [Description("Converts multiple job URLs into clean Markdown content simultaneously.")]
+    /// <param name="urls">List of URLs to read and convert to Markdown.</param>
+    /// <returns>A list of JobContent objects containing the cleaned text from each URL.</returns>
     public async Task<List<JobContent>> ReadJobsInBatch(List<string> urls)
     {
         // We trigger all HTTP requests in parallel
@@ -46,12 +44,12 @@ public class MarkdownBatchReaderPlugin(IHttpClientFactory httpClientFactory)
 
 
     /// <summary>
-    /// Reads a single job URL and returns its content in Markdown.
+    /// Reads a single URL and returns its content in Markdown.
     /// </summary>
     [KernelFunction]
-    [Description("Reads the content of a specific job posting URL and returns it as clean Markdown. Use this when the user provides a direct link.")]
-    public async Task<JobContent> ReadSingleJob(
-        [Description("The full URL of the job posting")] string url)
+    [Description("Reads the content of a specific URL and returns it as clean Markdown. Use this when the user provides a direct link and analyse the result.")]
+    public async Task<JobContent> ReadUrlAsMarkdown(
+        [Description("The full URL to read (must be absolute, e.g., 'https://example.com/page')")] string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uriResult) ||
             (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))

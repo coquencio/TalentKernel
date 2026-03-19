@@ -1,21 +1,22 @@
 ﻿using UglyToad.PdfPig;
-using Microsoft.SemanticKernel;
-using System.ComponentModel;
 
-namespace TalentKernel.Plugins;
-public class FileExtractorPlugin
+namespace TalentKernel.Services;
+public class FileExtractorService
 {
     private readonly HttpClient _httpClient;
 
-    public FileExtractorPlugin(IHttpClientFactory httpClientFactory)
+    public FileExtractorService(IHttpClientFactory httpClientFactory)
     {
         _httpClient = httpClientFactory.CreateClient();
     }
 
-    [KernelFunction, Description("Extracts text from a PDF file given its URL.")]
     public async Task<string> ExtractTextFromPdf(string url)
     {
         var response = await _httpClient.GetAsync(url);
+        if (!response.Content.Headers.ContentType?.MediaType?.Equals("application/pdf", StringComparison.OrdinalIgnoreCase) ?? true)
+        {
+            return "The downloaded file is not a PDF.";
+        }
         using var stream = await response.Content.ReadAsStreamAsync();
         using var pdf = PdfDocument.Open(stream);
 
