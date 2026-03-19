@@ -19,7 +19,6 @@ public class TalentDiscordWorker : BackgroundService
     private readonly OpenAIPromptExecutionSettings _executionSettings = new()
     {
         ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
-        ServiceId = "talentKernel"
     };
 
     public TalentDiscordWorker(
@@ -72,33 +71,24 @@ public class TalentDiscordWorker : BackgroundService
         using var typing = message.Channel.EnterTypingState();
 
         string userContent = message.Content;
-
-        // Handle Attachments
-        if (message.Attachments.Any())
+        if (message.Attachments.Any(a => a.Filename.EndsWith(".pdf")))
         {
             var file = message.Attachments.First();
-            if (file.Filename.EndsWith(".pdf"))
-            {
-                // We tell the LLM there is a file and give it the URL
-                userContent += $"\n[File Attached: {file.Filename}, URL: {file.Url}]";
-                userContent += "\nPlease analyze this document.";
-            }
+            userContent += $"\n[File Attached: {file.Filename}, URL: {file.Url}]";
         }
 
         _chatHistory.AddUserMessage(userContent);
 
         var result = await _chatService.GetChatMessageContentAsync(_chatHistory, _executionSettings, _kernel);
 
+        _chatHistory.Add(result);
+
         if (!string.IsNullOrEmpty(result.Content))
         {
-            _chatHistory.AddAssistantMessage(result.Content);
-
-            // Discord limit is 2000, we use 1900 to be safe
             var chunks = result.Content.Chunk(1900);
-
             foreach (var chunk in chunks)
             {
-                await message.Channel.SendMessageAsync(chunk.ToString());
+                await message.Channel.SendMessageAsync(new string(chunk.ToArray()));
             }
         }
     }

@@ -22,7 +22,7 @@ var modelEndpoint = builder.Configuration["Model:endpoint"] ?? string.Empty;
 builder.Services.AddKeyedSingleton("talentKernel", (sp, key) =>
 {
     var k = Kernel.CreateBuilder()
-        .AddAzureOpenAIChatCompletion(model, modelEndpoint, modelKey, serviceId: "talentKernel")
+        .AddAzureOpenAIChatCompletion(model, modelEndpoint, modelKey)
         .Build();
 
     k.AddTalentPlugins(sp);
