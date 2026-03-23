@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
 
         // Plugin registrations (As Singletons to be resolved by the Kernel)
         services.AddSingleton<JobSearchPlugin>(sp =>
-            new JobSearchPlugin(adzunaId, adzunaKey, sp.GetRequiredService<IHttpClientFactory>()));
+            new JobSearchPlugin(adzunaKey, adzunaId, sp.GetRequiredService<IHttpClientFactory>()));
 
         services.AddSingleton<MarkdownReaderPlugin>();
         services.AddSingleton<CvOrchestratorPlugin>();

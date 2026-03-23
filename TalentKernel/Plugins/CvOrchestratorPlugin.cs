@@ -37,7 +37,7 @@ public class CvOrchestratorPlugin
     /// Orchestrates the full flow: extract text from a CV PDF, profile it, search jobs, and filter them with the batch reader + analyst.
     /// </summary>
     [KernelFunction]
-    [Description("Given either a PDF URL (CV) or raw CV text, a country code and additional criteria, return matching job offers with apply URLs.")]
+    [Description("Given either a PDF URL (CV) or raw CV text, a country and additional criteria, return matching job offers with apply URLs.")]
     public async Task<OrchestratorResult> OrchestrateCvJobSearch(
         Kernel kernel,
         [Description("Publicly accessible URL to the candidate CV in PDF format (optional if rawCvText is provided)")] string? pdfUrl = null,

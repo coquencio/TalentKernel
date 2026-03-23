@@ -25,6 +25,8 @@ public class ProfilerService
               "PreferredRoles": ["role1", "role2"],
               "Summary": "A 2-sentence professional summary"
             }
+
+            Output MUST be a single-line JSON string. NO markdown, NO backticks. Start with '{' and end with '}'.
             """;
 
         var result = await kernel.InvokePromptAsync<string>(prompt, new() { { "rawResumeText", rawResumeText } });
