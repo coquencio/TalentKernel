@@ -5,8 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using System.Collections.Concurrent;
+using System.Text;
 
 namespace TalentKernelChat;
 
@@ -14,15 +13,9 @@ public class TalentDiscordWorker : BackgroundService
 {
     private readonly DiscordSocketClient _client;
     private readonly Kernel _kernel;
-    private readonly IChatCompletionService _chatService;
     private readonly string _token;
-    private readonly ConcurrentDictionary<ulong, ChatHistory> _userHistories = new();
-
-    private readonly OpenAIPromptExecutionSettings _executionSettings = new()
-    {
-        FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: true),
-        Temperature = 0.1
-    };
+    private readonly string _promptyPath;
+    private readonly ChatHistory _chatHistory;
 
     public TalentDiscordWorker(
         DiscordSocketClient client,
@@ -31,29 +24,9 @@ public class TalentDiscordWorker : BackgroundService
     {
         _client = client;
         _kernel = kernel;
-        _chatService = kernel.GetRequiredService<IChatCompletionService>();
         _token = config["Discord:Token"] ?? string.Empty;
-    }
-
-    private ChatHistory GetHistoryForUser(ulong userId)
-    {
-        return _userHistories.GetOrAdd(userId, _ => new ChatHistory("""
-            # ROLE
-            You are 'TalentKernel', an autonomous career agent for Software Engineers. 
-            
-            # REASONING PROTOCOL
-            1. ANALYZE user input for plugin requirements.
-            2. EXECUTE plugin immediately. DO NOT ask for permission.
-            3. DO NOT announce which plugin you will use.
-            4. NEVER EVER!!! write 'tool_call_name' or 'tool_call_arguments' in your response text.
-            5. ONLY RESPONSES FROM PLUGIN OUTPUT ARE ALLOWED.
-            6. If a PDF/CV is present: Run 'CvOrchestratorPlugin-OrchestrateCvJobSearch' NOW.
-            7. CRITCAL NEVER EVER MADE UP A RESPONSE FROM PLUGIN CALLS.
-            # DIRECTIVES
-            - Be concise. 
-            - Use tools first, talk later.
-            - If a CV is processed, persist it to memory automatically.
-            """));
+        _promptyPath = Path.Combine(AppContext.BaseDirectory, "Prompts", "TalentKernel.prompty");
+        _chatHistory = new ChatHistory();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -69,26 +42,35 @@ public class TalentDiscordWorker : BackgroundService
         if (message.Author.IsBot) return;
 
         using var typing = message.Channel.EnterTypingState();
-        var history = GetHistoryForUser(message.Author.Id);
 
-        string userContent = message.Content;
-        var attachment = message.Attachments.FirstOrDefault(a => a.Filename.EndsWith(".pdf"));
-
-        if (attachment != null)
+        StringBuilder userContent = new StringBuilder(message.Content);
+        if (message.Attachments.Any(a => a.Filename.EndsWith(".pdf")))
         {
-            userContent += $"\n[COMMAND: PDF Attached. Name: {attachment.Filename}. URL: {attachment.Url}. ANALYZE AND EXECUTE PLUGINS NOW.]";
+            var file = message.Attachments.First();
+            userContent.AppendLine($"\n[File Attached: {file.Url}]");
         }
-
-        history.AddUserMessage(userContent);
 
         try
         {
-            var response = await _chatService.GetChatMessageContentAsync(history, _executionSettings, _kernel);
+            var promptyContent = await File.ReadAllTextAsync(_promptyPath);
+            var promptyFunction = _kernel.CreateFunctionFromPrompty(promptyContent);
 
-            if (!string.IsNullOrEmpty(response.Content))
+            var arguments = new KernelArguments
             {
-                history.Add(response);
-                foreach (var chunk in response.Content.Chunk(1900))
+                ["user_input"] = userContent.ToString(),
+                ["chat_history"] = _chatHistory
+            };
+
+            var result = await _kernel.InvokeAsync(promptyFunction, arguments);
+            string responseText = result.ToString();
+
+            _chatHistory.AddUserMessage(userContent.ToString());
+            _chatHistory.AddAssistantMessage(responseText);
+
+            if (!string.IsNullOrEmpty(responseText))
+            {
+                var chunks = responseText.Chunk(1900);
+                foreach (var chunk in chunks)
                 {
                     await message.Channel.SendMessageAsync(new string(chunk.ToArray()));
                 }
@@ -96,7 +78,8 @@ public class TalentDiscordWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            await message.Channel.SendMessageAsync($"⚠️ Error: {ex.Message}");
+            Console.WriteLine($"Error: {ex.Message}");
+            await message.Channel.SendMessageAsync("Lo siento, ocurrió un error procesando tu solicitud.");
         }
     }
 }

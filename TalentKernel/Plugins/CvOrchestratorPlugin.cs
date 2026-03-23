@@ -37,7 +37,59 @@ public class CvOrchestratorPlugin
     /// Orchestrates the full flow: extract text from a CV PDF, profile it, search jobs, and filter them with the batch reader + analyst.
     /// </summary>
     [KernelFunction]
-    [Description("Given either a PDF URL (CV) or raw CV text, a country and additional criteria, return matching job offers with apply URLs.")]
+    [Description("""
+    Primary orchestrator that drives the CV-first job discovery workflow. This is the preferred plugin to call
+    whenever a user provides CV/profile information (raw text or a PDF attachment) and requests job matching.
+
+    Key behavior and priorities:
+    - This plugin is the MAIN tool for flows that include a user's CV/profile. If the user supplies CV text or
+      attaches a resume PDF, prefer this orchestrator rather than calling JobSearchPlugin directly.
+    - rawCvText takes precedence. If rawCvText is not provided and pdfUrl is present, the plugin will attempt
+      to extract plain text from the provided PDF attachment URL.
+    - Treat any PDF URL as an attachment URL (for example, a Discord attachment URL). Callers should ensure the
+      URL is publicly accessible or reachable by the extraction service.
+    - When a CV is successfully extracted as plain text, persist the CV/profile to a user-scoped memory store
+      so it can be reused by future operations (for example, to generate cover letters). Confirm storage to the
+      user unless they opt out.
+    - If insufficient profile details are present, the orchestrator should prefer to ask the user clarifying
+      questions (e.g., preferred roles, seniority, remote vs on-site, visa needs) before returning final results.
+
+    AdditionalCriteria semantics:
+    - additionalCriteria is NOT intended for canonical role/skill keywords (e.g., "software developer", ".NET",
+      "cloud"). Those are derived from the CV/profile. Instead, additionalCriteria is intended for semantic
+      job attributes and constraints that affect match suitability, for example:
+        "relocation support", "visa sponsorship", "hybrid model", "fully remote", "no English required",
+        "willing to consider candidates without college degree", "junior-friendly", "sponsorship for internships",
+        "relocation to Germany", "works-with-timezones CET", "on-site in Berlin",
+      Use these values to semantically filter and rank jobs.
+
+    Workflow summary:
+    1) Extract and/or accept CV text.
+    2) Profile the candidate to build keywords, skills, preferred roles, summary and constraints.
+    3) Use the JobSearchPlugin with profile-derived keywords to fetch initial job results.
+    4) Use the MarkdownReaderPlugin and JobAnalystPlugin to read and semantically analyze job content.
+    5) Filter and rank jobs based on additionalCriteria and profile fit, returning job opportunities with apply URLs.
+
+    Caller guidance and examples:
+    - If the user uploads a CV and asks "Find me jobs", call this plugin with pdfUrl (or rawCvText) and any
+      high-level country preference. Ask follow-up questions if the CV lacks clarity about seniority or visa needs.
+    - Example prompt when user shares a job link and wants matches plus cover letter option:
+      "User provided CV (stored or attached) and asked: find matching jobs for this profile in Germany and prepare
+       to generate a cover letter for selected roles. Prioritize jobs that offer visa sponsorship or relocation."
+    - Example additionalCriteria usages:
+        new string[] { "visa sponsorship", "hybrid model", "no English required" }
+    - Example when a user pastes CV then a job URL:
+      "I pasted my CV. Now check this job: <jobUrl>. Is this a good fit? If yes, prepare a tailored cover letter."
+
+    Implementation notes for callers:
+    - Provide rawCvText to avoid extraction errors when possible.
+    - Provide pdfUrl when the user attached a file; treat it as an attachment URL and ensure accessibility.
+    - After extraction, persist the CV text (for example via ProfilerService or a user-scoped store) to enable
+      reuse for future cover letters and to improve follow-up flows.
+
+    Returns: An OrchestratorResult containing whether matches were found, a human-friendly message, and a list
+    of JobOpportunity objects with apply URLs.
+    """)]
     public async Task<OrchestratorResult> OrchestrateCvJobSearch(
         Kernel kernel,
         [Description("Publicly accessible URL to the candidate CV in PDF format (optional if rawCvText is provided)")] string? pdfUrl = null,

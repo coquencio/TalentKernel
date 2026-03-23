@@ -47,7 +47,7 @@ public class MarkdownReaderPlugin(IHttpClientFactory httpClientFactory)
     /// Reads a single URL and returns its content in Markdown.
     /// </summary>
     [KernelFunction]
-    [Description("Reads the content of a specific URL and returns it as clean Markdown. Use this when the user provides a direct link and analyse the result.")]
+    [Description("Reads any URL (not limited to job pages). Use this when the user provides a link and only wants details or a concise summary about the provided page, especially when no specific analysis criteria are provided.")]
     public async Task<JobContent> ReadUrlAsMarkdown(
         [Description("The full URL to read (must be absolute, e.g., 'https://example.com/page')")] string url)
     {
