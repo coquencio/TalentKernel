@@ -1,4 +1,4 @@
-﻿using UglyToad.PdfPig;
+using UglyToad.PdfPig;
 
 namespace TalentKernel.Services;
 public class FileExtractorService

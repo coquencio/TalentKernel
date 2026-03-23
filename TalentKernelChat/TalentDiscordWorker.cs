@@ -6,19 +6,22 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Collections.Concurrent;
 
 namespace TalentKernelChat;
+
 public class TalentDiscordWorker : BackgroundService
 {
     private readonly DiscordSocketClient _client;
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatService;
     private readonly string _token;
-    private readonly ChatHistory _chatHistory;
-    // Define the execution settings here to fix the "context" error
+    private readonly ConcurrentDictionary<ulong, ChatHistory> _userHistories = new();
+
     private readonly OpenAIPromptExecutionSettings _executionSettings = new()
     {
-        ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
+        FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: true),
+        Temperature = 0.1
     };
 
     public TalentDiscordWorker(
@@ -30,37 +33,33 @@ public class TalentDiscordWorker : BackgroundService
         _kernel = kernel;
         _chatService = kernel.GetRequiredService<IChatCompletionService>();
         _token = config["Discord:Token"] ?? string.Empty;
+    }
 
-        _chatHistory = new ChatHistory("""
-            You are 'TalentKernel', a high-end career agent for software engineers.
-            Your goal is to find jobs that offer visa sponsorship and match the user's profile perfectly.
-
-            FLOW RULES:
-            1. If the user provides a CV (as text or as a PDF attachment), and job criteria, use the CvOrchestratorPlugin to extract and parse the CV and find job matches.
-               - Note: any PDF URL in messages should be treated as a Discord attachment URL.
-            2. If the user provides a job URL, a PDF attachment, or CV information and asks for a cover letter, use the ApplicationArchitectPlugin.
-            3. Persist CV data: whenever a plugin extracts the user's CV as plain text (for example after processing an attached PDF),
-               store the extracted CV text in memory associated with the user so it can be reused later.
-               - On subsequent requests to write a cover letter, load the stored CV from memory and set it as the user's CV context before composing.
-            4. If the user provides job criteria (e.g. "I want a remote job in Germany that offers visa sponsorship"), use the JobSearchPlugin to find relevant jobs.
-            5. If the user provides URLs, use the MarkdownReaderPlugin to read and analyze them.
-            6. If the user provides job URL and ask specific questions about it, use the JobAnalystPlugin.
-
-            ADDITIONAL GUIDELINES:
-            - When a PDF is attached, prefer extracting and profiling the text. If extraction succeeds, persist the plain-text CV to memory.
-            - Always confirm when you have stored a CV to memory and explain how it will be used for future cover letters, unless the user opts out.
-            - Treat any reference to a PDF URL as a Discord attachment URL and attempt to retrieve and analyze the attachment when possible.
-
-            """);
+    private ChatHistory GetHistoryForUser(ulong userId)
+    {
+        return _userHistories.GetOrAdd(userId, _ => new ChatHistory("""
+            # ROLE
+            You are 'TalentKernel', an autonomous career agent for Software Engineers. 
+            
+            # REASONING PROTOCOL
+            1. ANALYZE user input for tool requirements.
+            2. EXECUTE tools immediately. DO NOT ask for permission.
+            3. DO NOT announce which tool you will use.
+            4. NEVER write 'tool_call_name' or 'tool_call_arguments' in your response text.
+            5. If a PDF/CV is present: Run 'CvOrchestratorPlugin-OrchestrateCvJobSearch' now.
+            
+            # DIRECTIVES
+            - Be concise. 
+            - Use tools first, talk later.
+            - If a CV is processed, persist it to memory automatically.
+            """));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _client.MessageReceived += OnMessageReceived;
-
         await _client.LoginAsync(TokenType.Bot, _token);
         await _client.StartAsync();
-
         await Task.Delay(-1, stoppingToken);
     }
 
@@ -69,30 +68,38 @@ public class TalentDiscordWorker : BackgroundService
         if (message.Author.IsBot) return;
 
         using var typing = message.Channel.EnterTypingState();
+        var history = GetHistoryForUser(message.Author.Id);
 
         string userContent = message.Content;
-        if (message.Attachments.Any(a => a.Filename.EndsWith(".pdf")))
+        var attachment = message.Attachments.FirstOrDefault(a => a.Filename.EndsWith(".pdf"));
+
+        if (attachment != null)
         {
-            var file = message.Attachments.First();
-            userContent += $"\n[File Attached: {file.Filename}, URL: {file.Url}]";
+            userContent += $"\n[COMMAND: PDF Attached. Name: {attachment.Filename}. URL: {attachment.Url}. ANALYZE AND EXECUTE PLUGINS NOW.]";
         }
 
-        _chatHistory.AddUserMessage(userContent);
+        history.AddUserMessage(userContent);
 
-        var result = await _chatService.GetChatMessageContentAsync(_chatHistory, _executionSettings, _kernel);
-
-        _chatHistory.Add(result);
-
-        if (!string.IsNullOrEmpty(result.Content))
+        try
         {
-            var chunks = result.Content.Chunk(1900);
-            foreach (var chunk in chunks)
+            var response = await _chatService.GetChatMessageContentAsync(history, _executionSettings, _kernel);
+
+            if (!string.IsNullOrEmpty(response.Content))
             {
-                await message.Channel.SendMessageAsync(new string(chunk.ToArray()));
+                history.Add(response);
+                foreach (var chunk in response.Content.Chunk(1900))
+                {
+                    await message.Channel.SendMessageAsync(new string(chunk.ToArray()));
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            await message.Channel.SendMessageAsync($"⚠️ Error: {ex.Message}");
         }
     }
 }
+
 public static class StringExtensions
 {
     public static IEnumerable<string> Chunk(this string str, int chunkSize)
@@ -101,4 +108,3 @@ public static class StringExtensions
             yield return str.Substring(i, Math.Min(chunkSize, str.Length - i));
     }
 }
-
