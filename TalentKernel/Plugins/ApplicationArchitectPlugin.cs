@@ -102,7 +102,7 @@ public class ApplicationArchitectPlugin
         var jobMarkdown = content?.Markdown ?? string.Empty;
 
         var prompt = """
-            Create a professional and concise cover letter for {{profile.FullName}}.
+            Create a professional and concise cover letter for {{$fullName}}.
 
             STRICT RULES:
             1. Use ONLY the skills and experience listed in the Candidate Profile. 
@@ -111,22 +111,29 @@ public class ApplicationArchitectPlugin
             4. Incorporate the Personal Notes to explain "The Why" behind the application.
 
             Candidate Profile:
-            - Skills: {{profile.CoreSkills}}
-            - Experience: {{profile.YearsOfExperience}} years
-            - Summary: {{profile.Summary}}
+            - Skills: {{$coreSkills}}
+            - Experience: {{$yearsOfExperience}} years
+            - Summary: {{$summary}}
 
             Personal Notes from Candidate:
-            {{personalNotes}}
+            {{$personalNotes}}
+
+            Candidate 's full CV (for reference, do not invent facts beyond this):
+            {{$fullCV}}
 
             Job Description:
-            {{jobMarkdown}}
+            {{$jobMarkdown}}
 
             Return the letter in a professional format.
             """;
 
         var result = await kernel.InvokePromptAsync<string>(prompt, new()
         {
-            { "profile", profile },
+            { "fullName", profile.FullName },
+            { "fullCV", profile.RawCvText },
+            { "coreSkills", string.Join(", ", profile.CoreSkills) },
+            { "yearsOfExperience", profile.YearsOfExperience.ToString() },
+            { "summary", profile.Summary },
             { "jobMarkdown", jobMarkdown },
             { "personalNotes", personalNotes ?? "No specific notes provided." }
         });

@@ -3,9 +3,6 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.AzureAIInference;
-using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
 using TalentKernel.Extensions;
 using TalentKernelChat;
 

@@ -33,12 +33,11 @@ public class JobAnalystPlugin
               }
             ]
 
+            Criteria:
+            {{$criteria}}
+
             Jobs (for analysis):
-            {{#each jobs}}
-            ID: {{this.Id}}
-            Content: {{this.Markdown}}
-            ---
-            {{/each}}
+            {{$jobs}}
 
             Notes and examples:
             - If the user asks "does this job offer relocation support?", the criteria will include "relocation support".
@@ -49,7 +48,11 @@ public class JobAnalystPlugin
             - If a criterion cannot be confidently determined, set MeetsCriteria to false and ConfidenceScore to a low value,
               but still populate FoundDetails when partial evidence exists.
 
-            Return ONLY valid JSON (no surrounding text).
+            CRITICAL OUTPUT REQUIREMENTS:
+            - Return ONLY raw JSON.
+            - Do NOT wrap the JSON in markdown or code fences.
+            - Do NOT include any explanation or text before or after the JSON.
+            - The response must be valid JSON that can be parsed directly.
             """;
 
     public JobAnalystPlugin(MarkdownReaderPlugin reader)
@@ -66,7 +69,7 @@ public class JobAnalystPlugin
 
         var arguments = new KernelArguments
         {
-            { "jobs", jobs },
+            { "jobs", System.Text.Json.JsonSerializer.Serialize(jobs) },
             { "criteria", string.Join(", ", criteria) }
         };
 
@@ -75,7 +78,7 @@ public class JobAnalystPlugin
         var data = System.Text.Json.JsonSerializer.Deserialize<List<SemanticAnalystResult>>(result!)
                ?? new List<SemanticAnalystResult>();
 
-        return data.Where(r => r.MeetsCriteria).ToList();
+        return data;
     }
 
     [KernelFunction]

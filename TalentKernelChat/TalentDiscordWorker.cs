@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.AzureAIInference;
 using System.Text;
 
 namespace TalentKernelChat;
@@ -25,8 +26,14 @@ public class TalentDiscordWorker : BackgroundService
         _client = client;
         _kernel = kernel;
         _token = config["Discord:Token"] ?? string.Empty;
-        _promptyPath = Path.Combine(AppContext.BaseDirectory, "Prompts", "TalentKernel.prompty");
         _chatHistory = new ChatHistory();
+
+#if DEBUG
+        string projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
+        _promptyPath = Path.Combine(projectRoot, "Prompts", "TalentKernel.prompty");
+#else
+        _promptyPath = Path.Combine(AppContext.BaseDirectory, "Prompts", "TalentKernel.prompty");
+#endif
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -44,10 +51,11 @@ public class TalentDiscordWorker : BackgroundService
         using var typing = message.Channel.EnterTypingState();
 
         StringBuilder userContent = new StringBuilder(message.Content);
-        if (message.Attachments.Any(a => a.Filename.EndsWith(".pdf")))
+        var attachment = message.Attachments.FirstOrDefault(a => a.Filename.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase));
+
+        if (attachment != null)
         {
-            var file = message.Attachments.First();
-            userContent.AppendLine($"\n[File Attached: {file.Url}]");
+            userContent.AppendLine($"\n[File Attached URL: {attachment.Url}]");
         }
 
         try
@@ -55,22 +63,33 @@ public class TalentDiscordWorker : BackgroundService
             var promptyContent = await File.ReadAllTextAsync(_promptyPath);
             var promptyFunction = _kernel.CreateFunctionFromPrompty(promptyContent);
 
-            var arguments = new KernelArguments
+            var settings = new AzureAIInferencePromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                MaxTokens = 800
+            };
+
+            var historyBuilder = new StringBuilder();
+            foreach (var chatMessage in _chatHistory)
+            {
+                historyBuilder.AppendLine($"{chatMessage.Role}: {chatMessage.Content}");
+            }
+
+            var arguments = new KernelArguments(settings)
             {
                 ["user_input"] = userContent.ToString(),
-                ["chat_history"] = _chatHistory
+                ["chat_history"] = historyBuilder.ToString()
             };
 
             var result = await _kernel.InvokeAsync(promptyFunction, arguments);
             string responseText = result.ToString();
 
-            _chatHistory.AddUserMessage(userContent.ToString());
-            _chatHistory.AddAssistantMessage(responseText);
-
-            if (!string.IsNullOrEmpty(responseText))
+            if (!string.IsNullOrWhiteSpace(responseText))
             {
-                var chunks = responseText.Chunk(1900);
-                foreach (var chunk in chunks)
+                _chatHistory.AddUserMessage(userContent.ToString());
+                _chatHistory.AddAssistantMessage(responseText);
+
+                foreach (var chunk in responseText.Chunk(1900))
                 {
                     await message.Channel.SendMessageAsync(new string(chunk.ToArray()));
                 }
@@ -78,8 +97,8 @@ public class TalentDiscordWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.Message}");
-            await message.Channel.SendMessageAsync("Lo siento, ocurrió un error procesando tu solicitud.");
+            Console.WriteLine($"FATAL: {ex.Message}");
+            await message.Channel.SendMessageAsync("An error occurred during kernel execution.");
         }
     }
 }

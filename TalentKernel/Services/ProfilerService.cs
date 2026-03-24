@@ -31,6 +31,8 @@ public class ProfilerService
 
         var result = await kernel.InvokePromptAsync<string>(prompt, new() { { "rawResumeText", rawResumeText } });
 
-        return JsonSerializer.Deserialize<CandidateProfile>(result!) ?? new CandidateProfile();
+        var data = JsonSerializer.Deserialize<CandidateProfile>(result!) ?? new CandidateProfile();
+        data.RawCvText = rawResumeText; // Store the raw CV text for future reference
+        return data;
     }
 }
