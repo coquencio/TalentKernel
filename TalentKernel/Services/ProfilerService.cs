@@ -1,22 +1,19 @@
 ﻿
 using Microsoft.SemanticKernel;
-using System.ComponentModel;
 using System.Text.Json;
 using TalentKernel.Models;
 
-namespace TalentKernel.Plugins;
+namespace TalentKernel.Services;
 
-public class ProfilerPlugin
+public class ProfilerService
 {
-    [KernelFunction]
-    [Description("Analyzes raw CV text and extracts structured professional information.")]
     public async Task<CandidateProfile> ParseResume(
         Kernel kernel,
-        [Description("The raw text content of the user's CV or LinkedIn profile")] string rawResumeText)
+        string rawResumeText)
     {
         var prompt = """
             Extract the professional profile from the following resume text.
-            
+            IMPORTANT: Persist the plain-text CV to memory for future reference, but only return the structured profile information as JSON.
             Resume Text:
             {{$rawResumeText}}
 
@@ -28,10 +25,14 @@ public class ProfilerPlugin
               "PreferredRoles": ["role1", "role2"],
               "Summary": "A 2-sentence professional summary"
             }
+
+            Output MUST be a single-line JSON string. NO markdown, NO backticks. Start with '{' and end with '}'.
             """;
 
         var result = await kernel.InvokePromptAsync<string>(prompt, new() { { "rawResumeText", rawResumeText } });
 
-        return JsonSerializer.Deserialize<CandidateProfile>(result!) ?? new CandidateProfile();
+        var data = JsonSerializer.Deserialize<CandidateProfile>(result!) ?? new CandidateProfile();
+        data.RawCvText = rawResumeText; // Store the raw CV text for future reference
+        return data;
     }
 }

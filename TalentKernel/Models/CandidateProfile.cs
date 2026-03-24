@@ -6,5 +6,6 @@ public class CandidateProfile
     public int YearsOfExperience { get; set; }
     public List<string> PreferredRoles { get; set; } = new();
     public string Summary { get; set; } = string.Empty;
+    public string RawCvText { get; set; } = string.Empty;
 }
 
