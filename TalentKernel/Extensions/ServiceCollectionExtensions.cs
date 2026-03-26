@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
-using System;
 using TalentKernel.Plugins;
 using TalentKernel.Services;
 
@@ -23,8 +22,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ProfilerService>();
 
         // Plugin registrations (As Singletons to be resolved by the Kernel)
-        services.AddSingleton<JobSearchPlugin>(sp =>
-            new JobSearchPlugin(adzunaKey, adzunaId, sp.GetRequiredService<IHttpClientFactory>()));
+        // Register the factory and the main plugin that will use it
+        services.AddSingleton<IJobFetchFactory, DefaultJobFetchFactory>();
+        services.AddSingleton(sp =>
+            new JobSearchPlugin(adzunaKey, adzunaId, sp.GetRequiredService<IHttpClientFactory>(), sp.GetRequiredService<IJobFetchFactory>()));
 
         services.AddSingleton<MarkdownReaderPlugin>();
         services.AddSingleton<CvOrchestratorPlugin>();
